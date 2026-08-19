@@ -92,6 +92,18 @@ auth_oidc:
 
 If you have this feature enabled and you would like to use the backup login, make sure to append `?skip_oidc_redirect=true` to your login URL. For example, if your HA is at `https://ha.example.com`, you can go to `https://ha.example.com/?skip_oidc_redirect=true` to see the HA username/password login screen.
 
+### Skipping the post-login screen
+By default, successful OIDC callbacks show a screen that lets the user continue in the current browser or approve a Home Assistant Companion App login using a device code. To return directly to the original browser login after a successful OIDC callback, enable this setting:
+
+```yaml
+auth_oidc:
+  features:
+    skip_intermediate_screen: true
+```
+
+> [!CAUTION]
+> This deliberately disables the Companion App device-code approval workflow. Enable it only when browser SSO is the priority and Companion App OIDC login is not offered or intentionally unsupported. Keep a local Home Assistant break-glass account available for support.
+
 ### Forcing HTTPS
 First check if you are setting the header `X-Forwarded-Proto` in your proxy and if the [proxy settings for Home Assistant](https://www.home-assistant.io/integrations/http/#use_x_forwarded_for) are configured correctly. You should also check if IP addresses in your logs actually match the origin IP (instead of proxy IP). If you cannot find any mistakes, you may use the following config option to force HTTPS regardless:
 
@@ -176,6 +188,7 @@ Here's a table of all options that you can set:
 | `features.include_groups_scope`  | `boolean` | No       | `true`           | Include the 'groups' scope in the OIDC request. Set to `false` to exclude it. |
 | `features.force_https`  | `boolean` | No       | `false`           | Set to `true` to force all URLs generated to use `https` instead of automatically determining based on the request scheme or `X-Forwarded-Proto`. |
 | `features.default_redirect`  | `boolean` | No       | `false`           | Set to `true` to always skip the welcome screen (on desktop), regardless of if there are any other auth providers registered. |
+| `features.skip_intermediate_screen` | `boolean` | No | `false` | Set to `true` to redirect successful OIDC browser logins directly to their original redirect URI. This disables the Home Assistant Companion App device-code approval workflow. |
 | `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name.
 | `claims.username`         | `string` | No       | `preferred_username`                     | The claim to use to obtain the username.
 | `claims.groups`            | `string` | No       | `groups`                     | The claim to use to obtain the user's group(s). |
