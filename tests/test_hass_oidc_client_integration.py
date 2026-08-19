@@ -21,6 +21,8 @@ from custom_components.auth_oidc.tools.oidc_client import (
 from custom_components.auth_oidc.config.const import (
     DISCOVERY_URL,
     CLIENT_ID,
+    FEATURES,
+    FEATURES_SKIP_INTERMEDIATE_SCREEN,
 )
 
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
@@ -172,12 +174,13 @@ async def listen_for_sse_events(
     raise AssertionError(f"Failed to receive '{expected_event}' event")
 
 
-async def setup(hass: HomeAssistant):
+async def setup(hass: HomeAssistant, features: dict | None = None):
     """Set up the integration within Home Assistant"""
     mock_config = {
         DOMAIN: {
             CLIENT_ID: EXAMPLE_CLIENT_ID,
             DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            **({FEATURES: features} if features else {}),
         }
     }
 
@@ -249,6 +252,36 @@ async def test_full_oidc_flow(hass: HomeAssistant, hass_client):
 
         # POST to finish without any POST body should result in 302 back to the original redirect_uri
         await verify_back_redirect(client, redirect_uri)
+
+
+@pytest.mark.asyncio
+async def test_callback_skips_finish_screen_when_configured(
+    hass: HomeAssistant, hass_client
+):
+    """Configured browser logins should return directly to their original URI."""
+    await setup(hass, {FEATURES_SKIP_INTERMEDIATE_SCREEN: True})
+
+    with mock_oidc_responses():
+        client = await hass_client()
+        redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+        state, _, status = await get_welcome_for_client(client, redirect_uri)
+        assert status == 200
+
+        authorization_url = await get_redirect_auth_url(client)
+        session = async_get_clientsession(hass)
+        response = session.get(authorization_url, allow_redirects=False)
+        code = (await response.json())["code"]
+
+        response = await client.get(
+            f"/auth/oidc/callback?code={code}&state={state}",
+            allow_redirects=False,
+        )
+
+        assert response.status == 302
+        location = response.headers["Location"]
+        assert location.startswith(unquote(redirect_uri))
+        assert parse_qs(urlparse(location).query)["skip_oidc_redirect"] == ["true"]
+        assert "/auth/oidc/finish" not in location
 
 
 @pytest.mark.asyncio

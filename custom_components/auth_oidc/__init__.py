@@ -30,6 +30,7 @@ from .config import (
     FEATURES_INCLUDE_GROUPS_SCOPE,
     FEATURES_DEFAULT_REDIRECT,
     FEATURES_FORCE_HTTPS,
+    FEATURES_SKIP_INTERMEDIATE_SCREEN,
     REQUIRED_SCOPES,
 )
 
@@ -185,6 +186,9 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
 
     force_https = features_config.get(FEATURES_FORCE_HTTPS, False)
     default_redirect = features_config.get(FEATURES_DEFAULT_REDIRECT, False)
+    skip_intermediate_screen = features_config.get(
+        FEATURES_SKIP_INTERMEDIATE_SCREEN, False
+    )
 
     await hass.http.async_register_static_paths(
         [
@@ -218,7 +222,11 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
     )
     hass.http.register_view(OIDCDeviceSSE(provider))
     hass.http.register_view(OIDCRedirectView(oidc_client, provider, force_https))
-    hass.http.register_view(OIDCCallbackView(oidc_client, provider, force_https))
+    hass.http.register_view(
+        OIDCCallbackView(
+            oidc_client, provider, force_https, skip_intermediate_screen
+        )
+    )
     hass.http.register_view(OIDCFinishView(provider))
 
     _LOGGER.info("Registered OIDC views")

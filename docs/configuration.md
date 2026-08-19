@@ -100,6 +100,18 @@ The required Core API is tracked in [home-assistant/core#179531](https://github.
 
 For compatible providers such as Authentik, the provider must register an exact HTTPS post-logout redirect URI before the feature can be enabled. The integration will not use a break-glass URI, a generic unvalidated callback, access tokens in URLs, or cross-origin cookie deletion. Companion App logout and non-browser token revocation will remain local-only; this is RP-Initiated Logout, not IdP-initiated Single Logout.
 
+### Skipping the post-login screen
+By default, successful OIDC callbacks show a screen that lets the user continue in the current browser or approve a Home Assistant Companion App login using a device code. To return directly to the original browser login after a successful OIDC callback, enable this setting:
+
+```yaml
+auth_oidc:
+  features:
+    skip_intermediate_screen: true
+```
+
+> [!CAUTION]
+> This deliberately disables the Companion App device-code approval workflow. Enable it only when browser SSO is the priority and Companion App OIDC login is not offered or intentionally unsupported. Keep a local Home Assistant break-glass account available for support.
+
 ### Forcing HTTPS
 First check if you are setting the header `X-Forwarded-Proto` in your proxy and if the [proxy settings for Home Assistant](https://www.home-assistant.io/integrations/http/#use_x_forwarded_for) are configured correctly. You should also check if IP addresses in your logs actually match the origin IP (instead of proxy IP). If you cannot find any mistakes, you may use the following config option to force HTTPS regardless:
 
@@ -185,6 +197,7 @@ Here's a table of all options that you can set:
 | `features.force_https`  | `boolean` | No       | `false`           | Set to `true` to force all URLs generated to use `https` instead of automatically determining based on the request scheme or `X-Forwarded-Proto`. |
 | `features.default_redirect`  | `boolean` | No       | `false`           | Set to `true` to always skip the welcome screen (on desktop), regardless of if there are any other auth providers registered. |
 | `features.idp_logout_on_hass_logout` | `boolean` | No | `false` | Reserved for OIDC RP-Initiated Logout. Currently rejected when `true` until Home Assistant Core provides a supported browser logout hook. |
+| `features.skip_intermediate_screen` | `boolean` | No | `false` | Set to `true` to redirect successful OIDC browser logins directly to their original redirect URI. This disables the Home Assistant Companion App device-code approval workflow. |
 | `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name.
 | `claims.username`         | `string` | No       | `preferred_username`                     | The claim to use to obtain the username.
 | `claims.groups`            | `string` | No       | `groups`                     | The claim to use to obtain the user's group(s). |

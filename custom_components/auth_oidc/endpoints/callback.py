@@ -4,7 +4,12 @@ from homeassistant.components.http import HomeAssistantView
 from aiohttp import web
 from ..tools.oidc_client import OIDCClient
 from ..provider import OpenIDAuthProvider
-from ..tools.helpers import error_response, get_url, get_valid_state_id
+from ..tools.helpers import (
+    concat_url_query,
+    error_response,
+    get_url,
+    get_valid_state_id,
+)
 
 PATH = "/auth/oidc/callback"
 
@@ -21,10 +26,12 @@ class OIDCCallbackView(HomeAssistantView):
         oidc_client: OIDCClient,
         oidc_provider: OpenIDAuthProvider,
         force_https: bool,
+        skip_intermediate_screen: bool,
     ) -> None:
         self.oidc_client = oidc_client
         self.oidc_provider = oidc_provider
         self.force_https = force_https
+        self.skip_intermediate_screen = skip_intermediate_screen
 
     async def get(self, request: web.Request) -> web.Response:
         """Receive response."""
@@ -73,5 +80,17 @@ class OIDCCallbackView(HomeAssistantView):
                 "Failed to save user information, session probably expired. Please sign in again.",
                 status=500,
             )
+
+        if self.skip_intermediate_screen:
+            redirect_uri = await self.oidc_provider.async_get_redirect_uri_for_state(
+                state_id
+            )
+            if not redirect_uri:
+                return await error_response("Invalid state, please restart login.")
+
+            redirect_uri = concat_url_query(
+                redirect_uri, "skip_oidc_redirect=true"
+            )
+            raise web.HTTPFound(location=redirect_uri)
 
         raise web.HTTPFound(get_url("/auth/oidc/finish", self.force_https))

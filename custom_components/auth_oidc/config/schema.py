@@ -17,6 +17,7 @@ from .const import (
     FEATURES_FORCE_HTTPS,
     FEATURES_DEFAULT_REDIRECT,
     FEATURES_IDP_LOGOUT_ON_HASS_LOGOUT,
+    FEATURES_SKIP_INTERMEDIATE_SCREEN,
     CLAIMS,
     CLAIMS_DISPLAY_NAME,
     CLAIMS_USERNAME,
@@ -104,6 +105,11 @@ CONFIG_SCHEMA = vol.Schema(
                             # a supported browser logout lifecycle hook.
                             vol.Optional(
                                 FEATURES_IDP_LOGOUT_ON_HASS_LOGOUT, default=False
+                            ): vol.Coerce(bool),
+                            # Complete browser logins directly after a successful callback.
+                            # This disables the Companion App device-code approval flow.
+                            vol.Optional(
+                                FEATURES_SKIP_INTERMEDIATE_SCREEN, default=False
                             ): vol.Coerce(bool),
                         }
                     ),
