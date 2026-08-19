@@ -112,6 +112,41 @@ async def verify_back_redirect(client, expected_redirect_uri: str):
     location = resp_finish_post.headers["Location"]
     assert location.startswith(unquote(expected_redirect_uri))
     assert "skip_oidc_redirect=true" in location
+    return location
+
+
+async def complete_home_assistant_login(hass, client, authorize_url: str) -> dict:
+    """Complete the Home Assistant login flow started by an authorize URL."""
+    authorize_query = parse_qs(urlparse(authorize_url).query)
+    client_id = authorize_query["client_id"][0]
+    redirect_uri = authorize_query["redirect_uri"][0]
+    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+
+    response = await client.post(
+        "/auth/login_flow",
+        json={
+            "client_id": client_id,
+            "handler": [provider.type, provider.id],
+            "redirect_uri": redirect_uri,
+        },
+    )
+    assert response.status == 200
+    login_result = await response.json()
+    assert login_result["type"] == FlowResultType.CREATE_ENTRY
+
+    response = await client.post(
+        "/auth/token",
+        data={
+            "client_id": client_id,
+            "grant_type": "authorization_code",
+            "code": login_result["result"],
+        },
+    )
+    assert response.status == 200
+    token_result = await response.json()
+    assert token_result["access_token"]
+    assert token_result["refresh_token"]
+    return token_result
 
 
 async def listen_for_sse_events(
@@ -251,7 +286,8 @@ async def test_full_oidc_flow(hass: HomeAssistant, hass_client):
         await complete_callback_and_finish(client, code, state)
 
         # POST to finish without any POST body should result in 302 back to the original redirect_uri
-        await verify_back_redirect(client, redirect_uri)
+        location = await verify_back_redirect(client, redirect_uri)
+        await complete_home_assistant_login(hass, client, location)
 
 
 @pytest.mark.asyncio
@@ -277,11 +313,13 @@ async def test_callback_skips_finish_screen_when_configured(
             allow_redirects=False,
         )
 
-        assert response.status == 302
+        assert response.status == 303
         location = response.headers["Location"]
         assert location.startswith(unquote(redirect_uri))
         assert parse_qs(urlparse(location).query)["skip_oidc_redirect"] == ["true"]
         assert "/auth/oidc/finish" not in location
+        assert response.cookies[COOKIE_NAME].value == state
+        await complete_home_assistant_login(hass, client, location)
 
 
 @pytest.mark.asyncio
