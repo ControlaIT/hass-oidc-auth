@@ -91,6 +91,12 @@ class OIDCCallbackView(HomeAssistantView):
             redirect_uri = concat_url_query(
                 redirect_uri, "skip_oidc_redirect=true"
             )
-            raise web.HTTPFound(location=redirect_uri)
+            # Reissue the validated state cookie so the HA auth flow receives it
+            # after this cross-site OIDC callback redirect.
+            cookie_header = self.oidc_provider.get_cookie_header(
+                state_id,
+                secure=self.force_https or request.url.scheme == "https",
+            )
+            raise web.HTTPSeeOther(location=redirect_uri, headers=cookie_header)
 
         raise web.HTTPFound(get_url("/auth/oidc/finish", self.force_https))
