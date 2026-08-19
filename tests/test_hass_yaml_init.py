@@ -6,7 +6,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 
 from custom_components.auth_oidc import DOMAIN
-from custom_components.auth_oidc.config.const import ADDITIONAL_SCOPES
+from custom_components.auth_oidc.config.const import (
+    ADDITIONAL_SCOPES,
+    FEATURES,
+    FEATURES_IDP_LOGOUT_ON_HASS_LOGOUT,
+)
 
 
 async def setup(hass: HomeAssistant, config: dict, expect_success: bool) -> bool:
@@ -25,6 +29,7 @@ async def setup(hass: HomeAssistant, config: dict, expect_success: bool) -> bool
         {
             "client_id": "dummy",
             "discovery_url": "https://example.com/.well-known/openid-configuration",
+            FEATURES: {FEATURES_IDP_LOGOUT_ON_HASS_LOGOUT: False},
         },
         {
             "client_id": "dummy",
@@ -88,3 +93,19 @@ async def test_setup_failure_partial_empty_yaml_client(hass: HomeAssistant, capl
         "Setup failed for custom integration 'auth_oidc': Invalid config."
         in caplog.text
     )
+
+
+@pytest.mark.asyncio
+async def test_setup_rejects_idp_logout_without_core_hook(hass: HomeAssistant, caplog):
+    """IdP logout must fail closed until Core supports browser logout hooks."""
+    await setup(
+        hass,
+        {
+            "client_id": "dummy",
+            "discovery_url": "https://example.com/.well-known/openid-configuration",
+            FEATURES: {FEATURES_IDP_LOGOUT_ON_HASS_LOGOUT: True},
+        },
+        False,
+    )
+
+    assert "idp_logout_on_hass_logout requires Home Assistant Core" in caplog.text

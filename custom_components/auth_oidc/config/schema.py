@@ -16,6 +16,7 @@ from .const import (
     FEATURES_INCLUDE_GROUPS_SCOPE,
     FEATURES_FORCE_HTTPS,
     FEATURES_DEFAULT_REDIRECT,
+    FEATURES_IDP_LOGOUT_ON_HASS_LOGOUT,
     CLAIMS,
     CLAIMS_DISPLAY_NAME,
     CLAIMS_USERNAME,
@@ -29,6 +30,18 @@ from .const import (
     DOMAIN,
     DEFAULT_GROUPS_SCOPE,
 )
+
+
+def _validate_features(features: dict) -> dict:
+    """Reject IdP logout until Home Assistant exposes a browser logout hook."""
+    if features.get(FEATURES_IDP_LOGOUT_ON_HASS_LOGOUT, False):
+        raise vol.Invalid(
+            "features.idp_logout_on_hass_logout requires Home Assistant Core "
+            "browser logout support; see "
+            "https://github.com/home-assistant/core/issues/179531"
+        )
+    return features
+
 
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -55,35 +68,46 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Optional(ADDITIONAL_SCOPES, default=[]): vol.Coerce(list[str]),
                 # Which features should be enabled/disabled?
                 # Optional, defaults to sane/secure defaults
-                vol.Optional(FEATURES): vol.Schema(
-                    {
-                        # Automatically links users to the HA user based on OIDC username claim
-                        # See provider.py for explanation
-                        vol.Optional(FEATURES_AUTOMATIC_USER_LINKING): vol.Coerce(bool),
-                        # Automatically creates a person entry for your new OIDC user
-                        # See provider.py for explanation
-                        vol.Optional(FEATURES_AUTOMATIC_PERSON_CREATION): vol.Coerce(
-                            bool
-                        ),
-                        # Feature flag to disable PKCE to support OIDC servers that do not
-                        # allow additional parameters and don't support RFC 7636
-                        vol.Optional(FEATURES_DISABLE_PKCE): vol.Coerce(bool),
-                        # Boolean which activates and deactivates scope 'groups'
-                        vol.Optional(
-                            FEATURES_INCLUDE_GROUPS_SCOPE, default=True
-                        ): vol.Coerce(bool),
-                        # Force HTTPS on all generated URLs (like redirect_uri)
-                        vol.Optional(FEATURES_FORCE_HTTPS, default=False): vol.Coerce(
-                            bool
-                        ),
-                        # Welcome page will be skipped automatically if there are no
-                        # other auth providers.
-                        # This flag enables this behavior regardless of the amount
-                        # of other auth providers.
-                        vol.Optional(
-                            FEATURES_DEFAULT_REDIRECT, default=False
-                        ): vol.Coerce(bool),
-                    }
+                vol.Optional(FEATURES): vol.All(
+                    vol.Schema(
+                        {
+                            # Automatically links users to the HA user based on OIDC username claim
+                            # See provider.py for explanation
+                            vol.Optional(FEATURES_AUTOMATIC_USER_LINKING): vol.Coerce(
+                                bool
+                            ),
+                            # Automatically creates a person entry for your new OIDC user
+                            # See provider.py for explanation
+                            vol.Optional(
+                                FEATURES_AUTOMATIC_PERSON_CREATION
+                            ): vol.Coerce(bool),
+                            # Feature flag to disable PKCE to support OIDC servers that do not
+                            # allow additional parameters and don't support RFC 7636
+                            vol.Optional(FEATURES_DISABLE_PKCE): vol.Coerce(bool),
+                            # Boolean which activates and deactivates scope 'groups'
+                            vol.Optional(
+                                FEATURES_INCLUDE_GROUPS_SCOPE, default=True
+                            ): vol.Coerce(bool),
+                            # Force HTTPS on all generated URLs (like redirect_uri)
+                            vol.Optional(
+                                FEATURES_FORCE_HTTPS, default=False
+                            ): vol.Coerce(bool),
+                            # Welcome page will be skipped automatically if there are no
+                            # other auth providers.
+                            # This flag enables this behavior regardless of the amount
+                            # of other auth providers.
+                            vol.Optional(
+                                FEATURES_DEFAULT_REDIRECT, default=False
+                            ): vol.Coerce(bool),
+                            # Log out of the IdP after the HA browser session ends.
+                            # This remains unavailable until Home Assistant Core has
+                            # a supported browser logout lifecycle hook.
+                            vol.Optional(
+                                FEATURES_IDP_LOGOUT_ON_HASS_LOGOUT, default=False
+                            ): vol.Coerce(bool),
+                        }
+                    ),
+                    _validate_features,
                 ),
                 # Determine which specific claims will be used from the id_token
                 # Optional, defaults to most common claims

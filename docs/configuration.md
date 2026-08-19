@@ -92,6 +92,14 @@ auth_oidc:
 
 If you have this feature enabled and you would like to use the backup login, make sure to append `?skip_oidc_redirect=true` to your login URL. For example, if your HA is at `https://ha.example.com`, you can go to `https://ha.example.com/?skip_oidc_redirect=true` to see the HA username/password login screen.
 
+### OIDC provider logout
+
+`features.idp_logout_on_hass_logout` is reserved for opt-in OIDC RP-Initiated Logout and defaults to `false`. It is not available yet: setting it to `true` fails configuration rather than silently performing only local logout. Home Assistant Core currently does not provide custom auth providers with a supported browser-logout lifecycle, nor a safe per-session location for an OIDC `id_token_hint` or `sid`.
+
+The required Core API is tracked in [home-assistant/core#179531](https://github.com/home-assistant/core/issues/179531). Once it exists, this integration will require an HTTPS `end_session_endpoint` from OIDC discovery and will not accept a manually configured logout endpoint.
+
+For compatible providers such as Authentik, the provider must register an exact HTTPS post-logout redirect URI before the feature can be enabled. The integration will not use a break-glass URI, a generic unvalidated callback, access tokens in URLs, or cross-origin cookie deletion. Companion App logout and non-browser token revocation will remain local-only; this is RP-Initiated Logout, not IdP-initiated Single Logout.
+
 ### Forcing HTTPS
 First check if you are setting the header `X-Forwarded-Proto` in your proxy and if the [proxy settings for Home Assistant](https://www.home-assistant.io/integrations/http/#use_x_forwarded_for) are configured correctly. You should also check if IP addresses in your logs actually match the origin IP (instead of proxy IP). If you cannot find any mistakes, you may use the following config option to force HTTPS regardless:
 
@@ -176,6 +184,7 @@ Here's a table of all options that you can set:
 | `features.include_groups_scope`  | `boolean` | No       | `true`           | Include the 'groups' scope in the OIDC request. Set to `false` to exclude it. |
 | `features.force_https`  | `boolean` | No       | `false`           | Set to `true` to force all URLs generated to use `https` instead of automatically determining based on the request scheme or `X-Forwarded-Proto`. |
 | `features.default_redirect`  | `boolean` | No       | `false`           | Set to `true` to always skip the welcome screen (on desktop), regardless of if there are any other auth providers registered. |
+| `features.idp_logout_on_hass_logout` | `boolean` | No | `false` | Reserved for OIDC RP-Initiated Logout. Currently rejected when `true` until Home Assistant Core provides a supported browser logout hook. |
 | `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name.
 | `claims.username`         | `string` | No       | `preferred_username`                     | The claim to use to obtain the username.
 | `claims.groups`            | `string` | No       | `groups`                     | The claim to use to obtain the user's group(s). |
